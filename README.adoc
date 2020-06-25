@@ -1,0 +1,23 @@
+# Bitbucket Archive
+
+Clone or pull all of a user's Bitbucket repositories to a local directory
+
+
+## Dependencies
+
+* This utility was tested against Bash v5
+* The JSON-processor `jq` is required
+* Both SCM executables `git` and `hg` are assumed to have been installed and configured
+* (You also _must_ have `curl` and `pushd` -- right?!)
+
+[CAUTION]
+====
+The user's username and a valid password are required. These are used to authenticate Bitbucket API requests via Basic HTTP Auth.
+
+The use of Bitbucket API https://developer.atlassian.com/bitbucket/api/2/reference/meta/authentication#app-pw[App passwords] is strongly encouraged.
+====
+
+
+## Use
+
+Consult: `bitbucket-archive --help`.

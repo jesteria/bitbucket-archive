@@ -1,0 +1,92 @@
+#!/bin/bash
+
+## configuration ##
+
+PAGELEN=100
+
+target="${1:-.}"
+
+
+## help ##
+
+if [[ "$target" =~ ^(-h|--help)$ ]]; then
+  echo "usage: $(basename "$0") [DIR]"
+  echo
+  echo "clone all of a user's bitbucket repositories"
+
+  exit
+fi
+
+
+## credentials collection ##
+
+echo -n "Username: "
+read username
+
+echo -n "Password: "
+read -s password
+
+echo  # start new line
+
+
+## main ##
+
+# iteratively page over user's repositories
+
+pushd "$target" > /dev/null
+
+next=https://api.bitbucket.org/2.0/repositories/$username?pagelen=$PAGELEN
+
+while [ "$next" != null ]; do
+  # we'll process the page of api results twice;
+  # so, most convenient to hold in memory:
+  page="$(curl --silent --user $username:"$password" $next)"
+
+  if [ -z "$page" ]; then
+    echo "[error] empty result (check credentials?)"
+    exit 1
+  fi
+
+  <<<"$page" jq -r '.values[] | "\(.scm) \(.links.clone[1].href)"' |
+  {
+    while read scm uri; do
+      repo_name="$(basename ${uri%.git})"
+
+      if [[ "$scm" =~ ^(hg|git)$ ]]; then
+        if [ -d "$repo_name" ]; then
+          echo -n "[info] $repo_name: $scm pull ... "
+
+          pushd "$repo_name" > /dev/null
+
+          $scm pull &> /dev/null
+
+          if [ $? -eq 0 ]; then
+            echo done
+          else
+            echo ERROR
+          fi
+
+          popd > /dev/null
+        elif [ -e "$repo_name" ]; then
+          echo "[error] $repo_name: path already exists"
+        else
+          echo -n "[info] $repo_name: $scm clone ... "
+
+          $scm clone $uri &> /dev/null
+
+          if [ $? -eq 0 ]; then
+            echo done
+          else
+            echo "ERROR: $scm clone $uri"
+          fi
+        fi
+      else
+        echo "[error] $repo_name: unhandled scm: $scm"
+      fi
+    done
+  }
+
+  next="$(<<<"$page" jq -r .next)"
+done
+
+popd > /dev/null
